@@ -1,1 +1,14 @@
 .DS_Store
+
+bin/
+/shop
+*.exe
+
+*.test
+coverage.out
+coverage.html
+
+.env
+
+.idea/
+.vscode/
