@@ -6,22 +6,19 @@
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
 ## 📍 Где остановились (11.10.2026)
-Этап 1, шаг 1 из 5 — **конфиг** (`internal/config/config.go`).
+Этап 1, шаг 2 из 5 — **HTTP-сервер + `/health`** (`cmd/shop/main.go`).
 
-Сделано:
-- Типы `Config` / `Server` / `Database` / `JWT` с `env`-тегами и префиксами.
-- `go get github.com/caarlos0/env/v11` выполнен.
-- Функция загрузки написана (разбор → проверка длины секрета → возврат).
+✅ Шаг 1 (конфиг) готов: `internal/config`, `.env.example`, lint 0 issues.
+⚠️ Хвост: удалить строку `dotenv` в начале `.env.example` (отдельный `fix:`-коммит).
 
-Осталось на шаге 1:
-1. Добавить импорт `github.com/caarlos0/env/v11` в `config.go` (сейчас ошибка `undefined: env`), затем `go mod tidy`.
-2. Ревью-правки: переименовать `LoadConfig` → `Load` (stutter), вынести 32 в константу `minJWTSecretLen`, в тексте ошибки «bytes» вместо «characters».
-3. Комментарии к пакету и экспортируемым типам (иначе ругается revive).
-4. Вызвать `config.Load()` из `main.go`: при ошибке напечатать и `os.Exit(1)`, иначе напечатать порт.
-5. Создать `.env.example` со всеми переменными (секрет — явно фейковый).
-6. Проверка: без переменных — понятная ошибка; с `DATABASE_USER/PASSWORD/NAME` и `JWT_SECRET=$(openssl rand -hex 32)` — печатает 8080. `make lint` → 0 issues. Коммит `feat: add env config`.
+Шаг 2 — что сделать:
+1. Логгер `slog` (JSON в stdout); ошибку загрузки конфига логировать через него.
+2. `http.NewServeMux()` + `GET /health` → 200 `{"status":"ok"}`.
+3. `http.Server` с `Addr` и всеми 4 таймаутами из `cfg.Server`.
+4. `ListenAndServe`; ошибку, кроме `http.ErrServerClosed`, логировать и `os.Exit(1)`.
+5. Проверка: `curl -i localhost:8080/health` → 200; `curl -i -X POST .../health` → 405. `make lint` → 0. Коммит `feat: add http server with health check`.
 
-Следующие шаги этапа 1: HTTP-сервер + `/health` → graceful shutdown (горутины, `signal.NotifyContext`) → multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`, иначе Postgres падает).
+Следующие шаги этапа 1: graceful shutdown (горутины, `signal.NotifyContext`) → multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`, иначе Postgres падает).
 
 Заметки по окружению: golangci-lint ставился с `CGO_ENABLED=0` из-за сломанных Command Line Tools, но `go test -race` проверен — работает. `~/go/bin` добавлен в PATH.
 
