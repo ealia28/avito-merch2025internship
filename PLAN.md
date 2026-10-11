@@ -5,9 +5,29 @@
 
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
+## 📍 Где остановились (11.10.2026)
+Этап 1, шаг 1 из 5 — **конфиг** (`internal/config/config.go`).
+
+Сделано:
+- Типы `Config` / `Server` / `Database` / `JWT` с `env`-тегами и префиксами.
+- `go get github.com/caarlos0/env/v11` выполнен.
+- Функция загрузки написана (разбор → проверка длины секрета → возврат).
+
+Осталось на шаге 1:
+1. Добавить импорт `github.com/caarlos0/env/v11` в `config.go` (сейчас ошибка `undefined: env`), затем `go mod tidy`.
+2. Ревью-правки: переименовать `LoadConfig` → `Load` (stutter), вынести 32 в константу `minJWTSecretLen`, в тексте ошибки «bytes» вместо «characters».
+3. Комментарии к пакету и экспортируемым типам (иначе ругается revive).
+4. Вызвать `config.Load()` из `main.go`: при ошибке напечатать и `os.Exit(1)`, иначе напечатать порт.
+5. Создать `.env.example` со всеми переменными (секрет — явно фейковый).
+6. Проверка: без переменных — понятная ошибка; с `DATABASE_USER/PASSWORD/NAME` и `JWT_SECRET=$(openssl rand -hex 32)` — печатает 8080. `make lint` → 0 issues. Коммит `feat: add env config`.
+
+Следующие шаги этапа 1: HTTP-сервер + `/health` → graceful shutdown (горутины, `signal.NotifyContext`) → multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`, иначе Postgres падает).
+
+Заметки по окружению: golangci-lint ставился с `CGO_ENABLED=0` из-за сломанных Command Line Tools, но `go test -race` проверен — работает. `~/go/bin` добавлен в PATH.
+
 ---
 
-## Этап 0. Подготовка репозитория и инструментов 🟨
+## Этап 0. Подготовка репозитория и инструментов ✅
 **Цель:** пустой, но «правильный» Go-проект, который собирается и проходит линтер.
 **Изучу:** `go mod`, структура Go-проекта (`cmd/`, `internal/`), git + GitHub, golangci-lint, Makefile.
 **Критерии готовности:**
@@ -17,7 +37,7 @@
 - Makefile: `build`, `run`, `lint`, `test`.
 **На что обратить внимание:** линтер ставим сразу, а не в конце: на пустом проекте он ничего не стоит, а иначе в конце придётся разбирать сотни замечаний разом.
 
-## Этап 1. Каркас HTTP-сервиса и Docker ⬜
+## Этап 1. Каркас HTTP-сервиса и Docker 🟨
 **Цель:** `docker compose up` поднимает сервис и Postgres; сервис отвечает на `localhost:8080`.
 **Изучу:** `net/http` (роутинг Go 1.22+: `GET /api/buy/{item}`), `context`, конфиг из env, `log/slog`,
 graceful shutdown (SIGTERM), multi-stage Dockerfile, compose: сети, healthcheck, depends_on.

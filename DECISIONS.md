@@ -35,3 +35,4 @@
 | T8 | Миграции | golang-migrate при старте сервиса / отдельный контейнер-мигратор | ❓ |
 | T9 | E2E-окружение | docker-compose.e2e.yaml / testcontainers-go | ❓ |
 | T10 | bcrypt cost | | ❓ |
+| T11 | Конфигурация | `caarlos0/env`, вложенные структуры (Server / DB / JWT); `JWT_SECRET` обязателен, без него сервис не стартует | ✅ |
