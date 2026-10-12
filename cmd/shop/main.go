@@ -11,15 +11,12 @@ import (
 	"github.com/ealia28/avito-merch2025internship/internal/config"
 )
 
-func main() {
+func run(logger *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Printf("failed to load config: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("load config: %w", err)
 	}
-	fmt.Printf("server port: %s\n", cfg.Server.Port)
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger.Info("server port", "port", cfg.Server.Port)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
@@ -38,7 +35,16 @@ func main() {
 	logger.Info("starting server", "port", srv.Addr)
 	err = srv.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("server error", "error", err)
+		return fmt.Errorf("server error: %w", err)
+	}
+	return nil
+}
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	err := run(logger)
+	if err != nil {
+		logger.Error("failed to run application", "error", err)
 		os.Exit(1)
 	}
 }
