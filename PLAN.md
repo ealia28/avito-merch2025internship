@@ -6,19 +6,21 @@
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
 ## 📍 Где остановились (11.10.2026)
-Этап 1, шаг 2 из 5 — **HTTP-сервер + `/health`** (`cmd/shop/main.go`).
+Этап 1, шаг 3 из 5 — **graceful shutdown** (`cmd/shop/main.go`).
 
-✅ Шаг 1 (конфиг) готов: `internal/config`, `.env.example`, lint 0 issues.
-⚠️ Хвост: удалить строку `dotenv` в начале `.env.example` (отдельный `fix:`-коммит).
+✅ Шаг 1 (конфиг) и ✅ шаг 2 (HTTP-сервер, `GET /health`, таймауты) готовы.
+⚠️ Перед запуском: `.env` ещё не создан → `cp .env.example .env`, вставить `openssl rand -hex 32` в `JWT_SECRET`, затем из корня `set -a; source .env; set +a; go run ./cmd/shop`.
+Разобрали теорию: процесс / PID / сигналы (SIGINT, SIGTERM, SIGKILL), горутины, каналы, select, context. Код шага 3 ещё не начат.
 
-Шаг 2 — что сделать:
-1. Логгер `slog` (JSON в stdout); ошибку загрузки конфига логировать через него.
-2. `http.NewServeMux()` + `GET /health` → 200 `{"status":"ok"}`.
-3. `http.Server` с `Addr` и всеми 4 таймаутами из `cfg.Server`.
-4. `ListenAndServe`; ошибку, кроме `http.ErrServerClosed`, логировать и `os.Exit(1)`.
-5. Проверка: `curl -i localhost:8080/health` → 200; `curl -i -X POST .../health` → 405. `make lint` → 0. Коммит `feat: add http server with health check`.
+Шаг 3 — что сделать:
+1. Разделить `main()` и `run() error`: в `main` только логгер, вызов `run`, при ошибке лог + `os.Exit(1)` (заодно: логгер первым, убрать `fmt`, ключ `addr`).
+2. `signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` + `defer stop()`.
+3. `ListenAndServe` в горутине; ошибка (кроме `ErrServerClosed`) → буферизованный канал `errCh`.
+4. `select` по `<-errCh` и `<-ctx.Done()`.
+5. `srv.Shutdown` с `context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)`.
+6. Проверка: Ctrl+C / `kill` → логи «shutting down» и «server stopped», exit 0; эксперимент с `/slow` (запрос дорабатывает). Lint 0. Коммит `feat: add graceful shutdown`.
 
-Следующие шаги этапа 1: graceful shutdown (горутины, `signal.NotifyContext`) → multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`, иначе Postgres падает).
+Следующие шаги этапа 1: multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`; `stop_grace_period` больше `SERVER_SHUTDOWN_TIMEOUT`).
 
 Заметки по окружению: golangci-lint ставился с `CGO_ENABLED=0` из-за сломанных Command Line Tools, но `go test -race` проверен — работает. `~/go/bin` добавлен в PATH.
 
