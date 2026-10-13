@@ -5,20 +5,24 @@
 
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
-## 📍 Где остановились (11.10.2026)
-Этап 1, шаг 3 из 5 — **graceful shutdown** (`cmd/shop/main.go`).
+## 📍 Где остановились (12.10.2026)
+Этап 1, шаг 3 из 5 — **graceful shutdown** (`cmd/shop/main.go`): код почти готов, **не закоммичен**.
 
 ✅ Шаг 1 (конфиг) и ✅ шаг 2 (HTTP-сервер, `GET /health`, таймауты) готовы.
-⚠️ Перед запуском: `.env` ещё не создан → `cp .env.example .env`, вставить `openssl rand -hex 32` в `JWT_SECRET`, затем из корня `set -a; source .env; set +a; go run ./cmd/shop`.
-Разобрали теорию: процесс / PID / сигналы (SIGINT, SIGTERM, SIGKILL), горутины, каналы, select, context. Код шага 3 ещё не начат.
+✅ `.env` создан. Утёкший в `.env.example` JWT-секрет (коммит `1963428`) заменён плейсхолдером и ротирован в `.env`.
+Запуск из корня: `set -a; source .env; set +a; go run ./cmd/shop`.
 
-Шаг 3 — что сделать:
-1. Разделить `main()` и `run() error`: в `main` только логгер, вызов `run`, при ошибке лог + `os.Exit(1)` (заодно: логгер первым, убрать `fmt`, ключ `addr`).
-2. `signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` + `defer stop()`.
-3. `ListenAndServe` в горутине; ошибка (кроме `ErrServerClosed`) → буферизованный канал `errCh`.
-4. `select` по `<-errCh` и `<-ctx.Done()`.
-5. `srv.Shutdown` с `context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)`.
-6. Проверка: Ctrl+C / `kill` → логи «shutting down» и «server stopped», exit 0; эксперимент с `/slow` (запрос дорабатывает). Lint 0. Коммит `feat: add graceful shutdown`.
+Шаг 3 — сделано: `run(logger) error` + `main` с `os.Exit`; `NotifyContext` первой строкой `run`; `ListenAndServe` в горутине → канал с буфером 1; `select`; `stop()` в ветке `ctx.Done()`; `Shutdown` со свежим `context.WithTimeout(context.Background(), ...)`. Lint 0, SIGINT/SIGTERM → exit 0 (проверено).
+Разобрали: зачем буфер 1 (утечка горутины), почему не `ctx` в `Shutdown` (он уже отменён), «логируй или возвращай, не оба», пары ключ-значение в slog.
+
+Шаг 3 — осталось:
+1. `logger.Info("server stopped")` после успешного `Shutdown`.
+2. `errch` → `errCh`.
+3. Эксперимент с временной `GET /slow` (sleep 5s): curl + Ctrl+C → curl получает 200, затем «server stopped». Попробовать второй Ctrl+C. Удалить `/slow`.
+4. Lint 0 → `git diff --staged` → коммит `feat: add graceful shutdown` → push.
+
+Конвенция коммитов: `feat:` / `fix:` / `refactor:` / `docs:` + суть изменения (не `new commit`).
+Мелочь на потом: в `.env.example` нет перевода строки в конце файла.
 
 Следующие шаги этапа 1: multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`; `stop_grace_period` больше `SERVER_SHUTDOWN_TIMEOUT`).
 
