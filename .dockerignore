@@ -1,0 +1,24 @@
+# Секреты: никогда не должны попасть в образ
+.env
+
+# Git и служебное
+.git
+.gitignore
+.DS_Store
+.idea/
+.vscode/
+
+# Артефакты локальной сборки и тестов
+bin/
+/shop
+*.test
+coverage.out
+coverage.html
+
+# Docker-файлы не нужны внутри образа (и их правка не должна сбрасывать кэш сборки)
+Dockerfile
+.dockerignore
+docker-compose*.yaml
+
+# Документация
+*.md

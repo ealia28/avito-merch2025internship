@@ -1,11 +1,13 @@
-FROM golang:1.22
+FROM golang:1.27 AS builder
 
-WORKDIR ${GOPATH}/avito-shop/
-COPY . ${GOPATH}/avito-shop/
+WORKDIR ${GOPATH}/src
+COPY go.mod go.sum ./
 
-RUN go build -o /build ./internal/cmd \
-    && go clean -cache -modcache
+RUN go mod download
 
+COPY . .
+RUN CGO_ENABLED=0 go build -o /build ./cmd/shop
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /build /shop
 EXPOSE 8080
-
-CMD ["/build"]
+ENTRYPOINT ["/shop"]
