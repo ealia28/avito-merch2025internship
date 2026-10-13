@@ -5,26 +5,22 @@
 
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
-## 📍 Где остановились (12.10.2026)
-Этап 1, шаг 3 из 5 — **graceful shutdown** (`cmd/shop/main.go`): код почти готов, **не закоммичен**.
+## 📍 Где остановились (13.10.2026)
+Этап 1, шаг 5 из 5 — **docker-compose** (сервис + Postgres).
 
-✅ Шаг 1 (конфиг) и ✅ шаг 2 (HTTP-сервер, `GET /health`, таймауты) готовы.
-✅ `.env` создан. Утёкший в `.env.example` JWT-секрет (коммит `1963428`) заменён плейсхолдером и ротирован в `.env`.
+✅ Шаг 1 (конфиг), ✅ шаг 2 (HTTP-сервер, `/health`, таймауты), ✅ шаг 3 (graceful shutdown, коммит `723465a`, запушен), ✅ шаг 4 (multi-stage Dockerfile + `.dockerignore`: образ 20 МБ, `docker stop` → «server stopped gracefully» за ~0.1 с, exit 0).
+Эксперимент с `/slow` проведён: запрос дорабатывает после Ctrl+C, `/slow` удалена.
+Урок: Ctrl+C шлёт SIGINT процессу в *текущем* терминале — жать надо в терминале сервера, а не curl.
 Запуск из корня: `set -a; source .env; set +a; go run ./cmd/shop`.
 
-Шаг 3 — сделано: `run(logger) error` + `main` с `os.Exit`; `NotifyContext` первой строкой `run`; `ListenAndServe` в горутине → канал с буфером 1; `select`; `stop()` в ветке `ctx.Done()`; `Shutdown` со свежим `context.WithTimeout(context.Background(), ...)`. Lint 0, SIGINT/SIGTERM → exit 0 (проверено).
-Разобрали: зачем буфер 1 (утечка горутины), почему не `ctx` в `Shutdown` (он уже отменён), «логируй или возвращай, не оба», пары ключ-значение в slog.
+Хвосты (сделать отдельным коммитом `refactor: ...`):
+- `errch` → `errCh` в `cmd/shop/main.go`.
+- В `.env.example` нет перевода строки в конце файла.
 
-Шаг 3 — осталось:
-1. `logger.Info("server stopped")` после успешного `Shutdown`.
-2. `errch` → `errCh`.
-3. Эксперимент с временной `GET /slow` (sleep 5s): curl + Ctrl+C → curl получает 200, затем «server stopped». Попробовать второй Ctrl+C. Удалить `/slow`.
-4. Lint 0 → `git diff --staged` → коммит `feat: add graceful shutdown` → push.
+Конвенция коммитов: `feat:` / `fix:` / `refactor:` / `docs:` + суть (последний коммит `Graceful_shutdown_added` — не по конвенции; запушенное не переписываем).
 
-Конвенция коммитов: `feat:` / `fix:` / `refactor:` / `docs:` + суть изменения (не `new commit`).
-Мелочь на потом: в `.env.example` нет перевода строки в конце файла.
-
-Следующие шаги этапа 1: multi-stage Dockerfile → compose (убрать монтирование несуществующего `migrations/init.sql`; `stop_grace_period` больше `SERVER_SHUTDOWN_TIMEOUT`).
+Шаг 4 — желательно добить: `WORKDIR /src` вместо `${GOPATH}/src`, пустая строка между стадиями, опционально `-trimpath -ldflags="-s -w"`. Закоммитить: `feat: add multi-stage Dockerfile`.
+Шаг 5 — compose: `env_file`/переменные под наш конфиг (`JWT_SECRET` и тайм-ауты), убрать монтирование несуществующего `migrations/init.sql`, убрать `version:`, `stop_grace_period` > `SERVER_SHUTDOWN_TIMEOUT`, проверка `docker compose down -v && docker compose up --build`.
 
 Заметки по окружению: golangci-lint ставился с `CGO_ENABLED=0` из-за сломанных Command Line Tools, но `go test -race` проверен — работает. `~/go/bin` добавлен в PATH.
 
