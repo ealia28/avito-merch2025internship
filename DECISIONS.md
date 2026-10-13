@@ -36,3 +36,5 @@
 | T9 | E2E-окружение | docker-compose.e2e.yaml / testcontainers-go | ❓ |
 | T10 | bcrypt cost | | ❓ |
 | T11 | Конфигурация | `caarlos0/env`, вложенные структуры (Server / DB / JWT); `JWT_SECRET` обязателен, без него сервис не стартует | ✅ |
+| T12 | Секреты при запуске через compose | `env_file: .env`, переменные Postgres подставляются из того же `.env` через `${...}`. `.env` не коммитится, проверяющий делает `cp .env.example .env` (будет в README). Дефолтные секреты в compose отклонены: не приучаемся коммитить секреты | ❓ (рекомендация, подтверди) |
+| T13 | Docker-образ | Multi-stage: `golang:1.27` → `distroless/static:nonroot`, `CGO_ENABLED=0`, `ENTRYPOINT` в exec-форме (чтобы SIGTERM доходил до процесса). Образ ~20 МБ. `stop_grace_period: 15s` > `SERVER_SHUTDOWN_TIMEOUT` | ✅ |

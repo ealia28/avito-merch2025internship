@@ -6,21 +6,17 @@
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
 ## 📍 Где остановились (13.10.2026)
-Этап 1, шаг 5 из 5 — **docker-compose** (сервис + Postgres).
+✅ **Этап 1 готов** (после коммита compose). Следующий — **этап 2: схема БД, миграции, подключение**.
 
-✅ Шаг 1 (конфиг), ✅ шаг 2 (HTTP-сервер, `/health`, таймауты), ✅ шаг 3 (graceful shutdown, коммит `723465a`, запушен), ✅ шаг 4 (multi-stage Dockerfile + `.dockerignore`: образ 20 МБ, `docker stop` → «server stopped gracefully» за ~0.1 с, exit 0).
-Эксперимент с `/slow` проведён: запрос дорабатывает после Ctrl+C, `/slow` удалена.
-Урок: Ctrl+C шлёт SIGINT процессу в *текущем* терминале — жать надо в терминале сервера, а не curl.
-Запуск из корня: `set -a; source .env; set +a; go run ./cmd/shop`.
+Этап 1: конфиг → HTTP-сервер с таймаутами → graceful shutdown → multi-stage Dockerfile (20 МБ) → compose (сервис + `postgres:17-alpine`, healthcheck, `depends_on: service_healthy`, volume `pgdata`, `stop_grace_period: 15s`).
+Проверено: `docker compose down -v && docker compose up --build -d` → db healthy, `/health` 200, `docker compose stop` → «server stopped gracefully» за 0.16 с, exit 0; в Postgres есть пользователь/БД `shop` из `.env`.
+Запуск локально: `set -a; source .env; set +a; go run ./cmd/shop`. В Docker: `docker compose up --build`.
 
-Хвосты (сделать отдельным коммитом `refactor: ...`):
-- `errch` → `errCh` в `cmd/shop/main.go`.
-- В `.env.example` нет перевода строки в конце файла.
+Хвосты (до начала этапа 2):
+- `errch` → `errCh` в `cmd/shop/main.go` и перевод строки в конце `.env.example` — **всё ещё не сделаны** (коммит `96ade07` содержал только PLAN.md). Проверять `git diff --staged` перед коммитом.
+- Подтвердить решение T12 в DECISIONS.md.
 
-Конвенция коммитов: `feat:` / `fix:` / `refactor:` / `docs:` + суть (последний коммит `Graceful_shutdown_added` — не по конвенции; запушенное не переписываем).
-
-Шаг 4 — желательно добить: `WORKDIR /src` вместо `${GOPATH}/src`, пустая строка между стадиями, опционально `-trimpath -ldflags="-s -w"`. Закоммитить: `feat: add multi-stage Dockerfile`.
-Шаг 5 — compose: `env_file`/переменные под наш конфиг (`JWT_SECRET` и тайм-ауты), убрать монтирование несуществующего `migrations/init.sql`, убрать `version:`, `stop_grace_period` > `SERVER_SHUTDOWN_TIMEOUT`, проверка `docker compose down -v && docker compose up --build`.
+Конвенция коммитов: `feat:` / `fix:` / `refactor:` / `docs:` + суть, без опечаток.
 
 Заметки по окружению: golangci-lint ставился с `CGO_ENABLED=0` из-за сломанных Command Line Tools, но `go test -race` проверен — работает. `~/go/bin` добавлен в PATH.
 
@@ -36,7 +32,7 @@
 - Makefile: `build`, `run`, `lint`, `test`.
 **На что обратить внимание:** линтер ставим сразу, а не в конце: на пустом проекте он ничего не стоит, а иначе в конце придётся разбирать сотни замечаний разом.
 
-## Этап 1. Каркас HTTP-сервиса и Docker 🟨
+## Этап 1. Каркас HTTP-сервиса и Docker ✅
 **Цель:** `docker compose up` поднимает сервис и Postgres; сервис отвечает на `localhost:8080`.
 **Изучу:** `net/http` (роутинг Go 1.22+: `GET /api/buy/{item}`), `context`, конфиг из env, `log/slog`,
 graceful shutdown (SIGTERM), multi-stage Dockerfile, compose: сети, healthcheck, depends_on.
