@@ -1,0 +1,1 @@
+DROP TABLE transfers, inventory, merch, users;

@@ -5,17 +5,18 @@
 
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
-## 📍 Где остановились (13.10.2026)
-✅ **Этап 1 готов** (после коммита compose). Следующий — **этап 2: схема БД, миграции, подключение**.
+## 📍 Где остановились (15.10.2026)
+✅ Этап 1 готов и закоммичен (`1f4deb5`). Сейчас — **этап 2, шаг 2 из 4: golang-migrate в compose**.
 
-Этап 1: конфиг → HTTP-сервер с таймаутами → graceful shutdown → multi-stage Dockerfile (20 МБ) → compose (сервис + `postgres:17-alpine`, healthcheck, `depends_on: service_healthy`, volume `pgdata`, `stop_grace_period: 15s`).
-Проверено: `docker compose down -v && docker compose up --build -d` → db healthy, `/health` 200, `docker compose stop` → «server stopped gracefully» за 0.16 с, exit 0; в Postgres есть пользователь/БД `shop` из `.env`.
+Шаги этапа 2:
+1. ✅ Схема: `migrations/000001_init.up.sql` / `.down.sql` — 4 таблицы, PK/FK, `CHECK`, `UNIQUE`, 2 индекса на `transfers`, 10 товаров в `merch`. Проверено руками через psql: up → down → up без ошибок. T6/T7/T8 записаны в DECISIONS.
+2. ⬜ Миграции golang-migrate: `migrations/000001_init.up.sql` / `.down.sql` + наполнение `merch`; применение через сервис `migrate` в compose. Проверка: `up` → `down` → `up` без ошибок.
+3. ⬜ Подключение: `pgxpool` в `internal/storage/postgres`, настройки пула, `Ping` с ретраями при старте, `pool.Close()` при shutdown.
+4. ⬜ Проверка `CHECK`-ограничений руками через psql (попытка уйти в минус → ошибка БД), ревью, коммит.
+
+Хвостов нет (`errch` и перевод строки в `.env.example` — решено оставить как есть).
+
 Запуск локально: `set -a; source .env; set +a; go run ./cmd/shop`. В Docker: `docker compose up --build`.
-
-Хвосты (до начала этапа 2):
-- `errch` → `errCh` в `cmd/shop/main.go` и перевод строки в конце `.env.example` — **всё ещё не сделаны** (коммит `96ade07` содержал только PLAN.md). Проверять `git diff --staged` перед коммитом.
-- Подтвердить решение T12 в DECISIONS.md.
-
 Конвенция коммитов: `feat:` / `fix:` / `refactor:` / `docs:` + суть, без опечаток.
 
 Заметки по окружению: golangci-lint ставился с `CGO_ENABLED=0` из-за сломанных Command Line Tools, но `go test -race` проверен — работает. `~/go/bin` добавлен в PATH.
@@ -44,7 +45,7 @@ graceful shutdown (SIGTERM), multi-stage Dockerfile, compose: сети, healthch
 - Чистый старт: `docker compose down -v && docker compose up --build` работает без ручных правок.
 **На что обратить внимание:** шаблонный Dockerfile собирает `./internal/cmd`, а мы будем собирать `./cmd/shop`. Его нужно поправить и сделать multi-stage (итоговый образ получится в десятки МБ вместо ~1 ГБ).
 
-## Этап 2. Схема БД, миграции, подключение ⬜
+## Этап 2. Схема БД, миграции, подключение 🟨
 **Цель:** таблицы созданы миграциями, сервис подключается к БД через пул.
 **Изучу:** проектирование схемы, `CHECK`/`UNIQUE`/`FOREIGN KEY`, индексы, golang-migrate, `pgx/v5` + `pgxpool`.
 **Критерии готовности:**

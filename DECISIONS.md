@@ -30,11 +30,11 @@
 | T3 | Драйвер БД | `pgx/v5` + `pgxpool` | ✅ |
 | T4 | Транзакции через слои | Свой минимальный transaction manager: tx передаётся через `context`, service вызывает `tm.Do(ctx, fn)`. Можно позже заменить на avito-tech/go-transaction-manager | ✅ |
 | T5 | Защита баланса | условный атомарный UPDATE / `SELECT ... FOR UPDATE` / SERIALIZABLE + ретраи | ❓ |
-| T6 | Мерч: таблица в БД или константа в коде | | ❓ |
-| T7 | Инвентарь: лог покупок или счётчик (user, item, qty) | | ❓ |
-| T8 | Миграции | golang-migrate при старте сервиса / отдельный контейнер-мигратор | ❓ |
+| T6 | Мерч: таблица в БД или константа в коде | Таблица `merch` (`name UNIQUE`, `price > 0`), заполняется в миграции. `inventory` ссылается на неё через FK, поэтому записать несуществующий товар нельзя; цена берётся в SQL внутри транзакции покупки. Каталог не меняется (решение 12), поэтому при необходимости можно закешировать его в памяти (этап 8) | ✅ |
+| T7 | Инвентарь: лог покупок или счётчик (user, item, qty) | Счётчик `inventory(user_id, merch_id, quantity)`, составной PK `(user_id, merch_id)`. Ответ `/api/info` берётся без `GROUP BY`, покупка — один upsert `INSERT ... ON CONFLICT DO UPDATE SET quantity = quantity + 1`. PK заодно даёт индекс по `user_id` | ✅ |
+| T8 | Миграции | golang-migrate, SQL-файлы в `migrations/`, отдельный сервис `migrate` в compose: `db` (healthy) → `migrate` (completed) → `shop`. Сервис сам не мигрирует: нет гонки миграций при нескольких репликах, приложению не нужны права на DDL | ✅ |
 | T9 | E2E-окружение | docker-compose.e2e.yaml / testcontainers-go | ❓ |
 | T10 | bcrypt cost | | ❓ |
 | T11 | Конфигурация | `caarlos0/env`, вложенные структуры (Server / DB / JWT); `JWT_SECRET` обязателен, без него сервис не стартует | ✅ |
-| T12 | Секреты при запуске через compose | `env_file: .env`, переменные Postgres подставляются из того же `.env` через `${...}`. `.env` не коммитится, проверяющий делает `cp .env.example .env` (будет в README). Дефолтные секреты в compose отклонены: не приучаемся коммитить секреты | ❓ (рекомендация, подтверди) |
+| T12 | Секреты при запуске через compose | `env_file: .env`, переменные Postgres подставляются из того же `.env` через `${...}`. `.env` не коммитится, проверяющий делает `cp .env.example .env` (будет в README). Дефолтные секреты в compose отклонены: не приучаемся коммитить секреты | ✅ |
 | T13 | Docker-образ | Multi-stage: `golang:1.27` → `distroless/static:nonroot`, `CGO_ENABLED=0`, `ENTRYPOINT` в exec-форме (чтобы SIGTERM доходил до процесса). Образ ~20 МБ. `stop_grace_period: 15s` > `SERVER_SHUTDOWN_TIMEOUT` | ✅ |
