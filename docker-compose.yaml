@@ -11,6 +11,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     # Должно быть больше SERVER_SHUTDOWN_TIMEOUT (10s), иначе Docker убьёт процесс до конца Shutdown.
     stop_grace_period: 15s
     networks:
@@ -33,6 +35,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - internal
+  migrate:
+    image: migrate/migrate:v4.18.1
+    container_name: migrate
+    volumes:
+      - ./migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${DATABASE_USER}:${DATABASE_PASSWORD}@db:5432/${DATABASE_NAME}?sslmode=disable"
+      - "up"
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - internal
 

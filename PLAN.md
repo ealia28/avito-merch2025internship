@@ -6,11 +6,11 @@
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
 ## 📍 Где остановились (15.10.2026)
-✅ Этап 1 готов и закоммичен (`1f4deb5`). Сейчас — **этап 2, шаг 2 из 4: golang-migrate в compose**.
+✅ Этап 1 готов и закоммичен (`1f4deb5`). Сейчас — **этап 2, шаг 3 из 4: подключение к БД через pgxpool**.
 
 Шаги этапа 2:
 1. ✅ Схема: `migrations/000001_init.up.sql` / `.down.sql` — 4 таблицы, PK/FK, `CHECK`, `UNIQUE`, 2 индекса на `transfers`, 10 товаров в `merch`. Проверено руками через psql: up → down → up без ошибок. T6/T7/T8 записаны в DECISIONS.
-2. ⬜ Миграции golang-migrate: `migrations/000001_init.up.sql` / `.down.sql` + наполнение `merch`; применение через сервис `migrate` в compose. Проверка: `up` → `down` → `up` без ошибок.
+2. ✅ Миграции golang-migrate: сервис `migrate` (`migrate/migrate:v4.18.1`) в compose, цепочка `db` (healthy) → `migrate` (completed) → сервис. Проверено: `down -v` → `up --build` → `1/u init`, 5 таблиц, `schema_migrations = 1|f`; повторный `up` → `no change`. Не закоммичено.
 3. ⬜ Подключение: `pgxpool` в `internal/storage/postgres`, настройки пула, `Ping` с ретраями при старте, `pool.Close()` при shutdown.
 4. ⬜ Проверка `CHECK`-ограничений руками через psql (попытка уйти в минус → ошибка БД), ревью, коммит.
 
