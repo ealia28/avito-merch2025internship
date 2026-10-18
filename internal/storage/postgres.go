@@ -4,11 +4,16 @@ package storage
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ealia28/avito-merch2025internship/internal/config"
 )
+
+const delay = 100 * time.Millisecond
+const maxDelay = 2 * time.Second
+const maxAttempts = 10
 
 // NewPool creates a new pgxpool.Pool instance for the given database configuration.
 // It ensures that the pool is properly initialized and can be used for database operations.
@@ -25,10 +30,30 @@ func NewPool(ctx context.Context, cfg config.Database) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create pgx pool: %w", err)
 	}
-	if err := pgxPool.Ping(ctx); err != nil {
-		pgxPool.Close()
-		return nil, fmt.Errorf("ping pgx pool: %w", err)
-	}
-	return pgxPool, nil
 
+	initialDelay := delay
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		err = pgxPool.Ping(ctx)
+		if err == nil {
+			return pgxPool, nil
+		}
+		fmt.Printf("attempt number %d failed: %v\n", attempt, err)
+
+		if attempt == maxAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			pgxPool.Close()
+			return nil, fmt.Errorf("ping pgx pool: context canceled %w", ctx.Err())
+		case <-time.After(initialDelay):
+			initialDelay *= 2
+			if initialDelay > maxDelay {
+				initialDelay = maxDelay
+			}
+		}
+	}
+	pgxPool.Close()
+	return nil, fmt.Errorf("ping postgres after %d attempts: %w", maxAttempts, err)
 }
