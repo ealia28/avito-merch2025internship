@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/ealia28/avito-merch2025internship/internal/config"
+	"github.com/ealia28/avito-merch2025internship/internal/storage"
 )
 
 func run(logger *slog.Logger) error {
@@ -22,6 +23,12 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+
+	pool, err := storage.NewPool(ctx, cfg.Database)
+	if err != nil {
+		return fmt.Errorf("create storage pool: %w", err)
+	}
+	defer pool.Close()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {

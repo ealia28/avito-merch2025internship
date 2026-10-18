@@ -5,7 +5,7 @@
 
 Статусы: ⬜ не начат · 🟨 в работе · ✅ готов
 
-## 📍 Где остановились (16.10.2026)
+## 📍 Где остановились (18.10.2026)
 ✅ Этап 1 готов и закоммичен (`1f4deb5`). Сейчас — **этап 2, шаг 3 из 4: подключение к БД через pgxpool**.
 
 Шаги этапа 2:
@@ -13,7 +13,7 @@
 2. ✅ Миграции golang-migrate: сервис `migrate` (`migrate/migrate:v4.18.1`) в compose, цепочка `db` (healthy) → `migrate` (completed) → сервис. Проверено: `down -v` → `up --build` → `1/u init`, 5 таблиц, `schema_migrations = 1|f`; повторный `up` → `no change`. Закоммичено (`82820e8`).
 3. 🟨 Подключение: `pgxpool` в `internal/storage/postgres`, настройки пула, `Ping` с ретраями при старте, `pool.Close()` при shutdown.
    **3а: config ✅ (закоммичено)** — ✅ поля пула (`SSLMode`, `MaxConns`=25, `MinConns`=5, `MaxConnLifetime`=1h, `MaxConnIdleTime`=30m); ✅ `DSN()` через `net/url` с doc-комментом (lint 0 issues). ✅ валидация в `Load()` (`MaxConns > 0`, `MinConns >= 0`, `Min <= Max`); ✅ `TestDatabaseDSN` 3/3 + `TestLoad` 8/8 PASS (`-race`, чистое env), lint 0 issues; ✅ новые переменные в `.env.example`. Мелочь (сказано один раз): `RawQuery` → `q`, разбить длинный литерал.
-   **3б** 🟨 `NewPool` ← следующий, начать с объяснения backoff + `select`/`ctx.Done()` · **3в** ⬜ `main`. Темы: пул соединений и зачем он, закон Литтла (1000 RPS × 5 мс ≈ 5 conns → дефолт 25); поля пула в `config.Database` + `DSN()` через `net/url` (+ table-driven тест); `NewPool` с `Ping` + exponential backoff через `select` на `ctx.Done()`/`time.After`, `pool.Close()` при провале; `defer pool.Close()` в `main` (после `srv.Shutdown`). Начинать с config.
+   **3б** 🟨 `NewPool` в `internal/storage/postgres.go`: ✅ ParseConfig → поля пула → NewWithConfig → один `Ping`, `Close()` на пути ошибки (build/lint 0 issues). ⬜ **ретраи с exponential backoff** (`select` на `ctx.Done()`/`time.After`, вернуть последнюю ошибку пинга) ← следующий; передать сигнальный `ctx` вместо `context.Background()`. · **3в** ✅ `main`: `NewPool` внутри `run` сразу после `config.Load()`, `defer pool.Close()` (закрывается после `srv.Shutdown`). ⬜ живая проверка: с БД стартует, без БД сразу падает (нужен запущенный Docker). Темы: пул соединений и зачем он, закон Литтла (1000 RPS × 5 мс ≈ 5 conns → дефолт 25).
 4. ⬜ Проверка `CHECK`-ограничений руками через psql (попытка уйти в минус → ошибка БД), ревью, коммит.
 
 Хвостов нет (`errch` и перевод строки в `.env.example` — решено оставить как есть).
